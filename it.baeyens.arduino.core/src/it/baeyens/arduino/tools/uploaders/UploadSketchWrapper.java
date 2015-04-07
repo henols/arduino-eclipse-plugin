@@ -31,6 +31,7 @@ public class UploadSketchWrapper {
     private MessageConsoleStream myErrconsoleStream = null;
 
     private UploadSketchWrapper() {
+	// no constructor needed
     }
 
     static private UploadSketchWrapper getUploadSketchWrapper() {
@@ -58,7 +59,7 @@ public class UploadSketchWrapper {
 	}
 
 	String UpLoadTool = Common.getBuildEnvironmentVariable(Project, cConf, ArduinoConst.ENV_KEY_upload_tool, "");
-	String MComPort = Common.getBuildEnvironmentVariable(Project, cConf, ArduinoConst.ENV_KEY_JANTJE_COM_PORT, "");	
+	String MComPort = Common.getBuildEnvironmentVariable(Project, cConf, ArduinoConst.ENV_KEY_JANTJE_COM_PORT, "");
 	myConsole = ArduinoHelpers.findConsole("upload console");
 	myConsole.clearConsole();
 	myConsole.activate();
@@ -88,8 +89,8 @@ public class UploadSketchWrapper {
 	    uploadJobName = ArduinoConst.Upload_ssh;
 	} else if (UpLoadTool.equalsIgnoreCase(ArduinoConst.UploadToolTeensy)) {
 	    myHighLevelConsoleStream.println("using generic local uploader");
-	    realUploader = new GenericLocalUploader(ArduinoConst.UploadToolTeensy, Project, cConf, myConsole, myErrconsoleStream, myOutconsoleStream);
-	    uploadJobName = ArduinoConst.UploadToolTeensy;
+	    realUploader = new GenericLocalUploader(UpLoadTool, Project, cConf, myConsole, myErrconsoleStream, myOutconsoleStream);
+	    uploadJobName = UpLoadTool;
 	} else {
 	    myHighLevelConsoleStream.println("using arduino loader");
 	    realUploader = new arduinoUploader(Project, cConf, UpLoadTool, myConsole);

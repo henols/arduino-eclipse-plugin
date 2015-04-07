@@ -5,6 +5,7 @@ import it.baeyens.arduino.common.ArduinoInstancePreferences;
 import it.baeyens.arduino.common.Common;
 import it.baeyens.arduino.tools.ArduinoBoards;
 import it.baeyens.arduino.tools.ArduinoHelpers;
+import it.baeyens.arduino.tools.ArduinoLibraries;
 
 import java.io.File;
 
@@ -37,8 +38,8 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * The ArduinoPageLayout class is used in the new wizard and the project properties. This class controls the gui and the data underneath the gui. This
- * class allows to select the arduino board and the port name
+ * The ArduinoSelectionPage class is used in the new wizard and the project properties. This class controls the gui and the data underneath the gui.
+ * This class allows to select the arduino board and the port name
  * 
  * @author Jan Baeyens
  * @see ArduinoProperties ArduinoSettingsPage
@@ -295,8 +296,8 @@ public class ArduinoSelectionPage extends AbstractCPropertyTab {
 	    mValidAndComplete = !mcontrolBoardName.getText().trim().isEmpty() && !controlUploadPort.getText().trim().isEmpty()
 		    && MenuOpionsValidAndComplete;
 	    feedbackControl.setText(mValidAndComplete ? "true" : "false");
-	    if (mValidAndComplete)
-		saveAllSelections();
+	    // if (mValidAndComplete)
+	    // saveAllSelections();
 	}
 	// tell other pages who listen in that the board has changed
 	if (mBoardSelectionChangedListener != null) {
@@ -320,11 +321,6 @@ public class ArduinoSelectionPage extends AbstractCPropertyTab {
     @Override
     public boolean canBeVisible() {
 	return true;
-    }
-
-    @Override
-    protected void performApply(ICResourceDescription src, ICResourceDescription dst) {
-	saveAllSelections();
     }
 
     @Override
@@ -353,10 +349,12 @@ public class ArduinoSelectionPage extends AbstractCPropertyTab {
 		ICConfigurationDescription confdescs[] = (ICConfigurationDescription[]) multiConfDesc.getItems();
 		for (int curdesc = 0; curdesc < confdescs.length; curdesc++) {
 		    saveAllSelections(confdescs[curdesc]);
+		    ArduinoLibraries.reAttachLibrariesToProject(confdescs[curdesc]);
 		}
 	    } else {
 		saveAllSelections(confdesc);
 	    }
+	    // ArduinoLibraries.reAttachLibrariesToProject(confdesc);
 	}
     }
 
@@ -464,6 +462,17 @@ public class ArduinoSelectionPage extends AbstractCPropertyTab {
 
     public IPath getPlatformFolder() {
 	return new Path(new File(mControlBoardsTxtFile.getText().trim()).getParent());
+    }
+
+    @Override
+    protected void performOK() {
+	saveAllSelections();
+	super.performOK();
+    }
+
+    @Override
+    protected void performApply(ICResourceDescription src, ICResourceDescription dst) {
+	saveAllSelections();
     }
 
 }

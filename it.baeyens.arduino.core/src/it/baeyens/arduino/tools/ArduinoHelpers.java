@@ -13,6 +13,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -70,10 +73,10 @@ import org.eclipse.ui.console.MessageConsole;
  */
 public class ArduinoHelpers extends Common {
 
-	private static final String BUILD_PATH_SYSCALLS_SAM3 = "\"{build.path}/syscalls_sam3.c.o\"";
-	private static final String BUILD_PATH_ARDUINO_SYSCALLS_SAM3 = "\"{build.path}/arduino/syscalls_sam3.c.o\"";
-	private static final String BUILD_PATH_SYSCALLS_MTK = "\"{build.path}/syscalls_mtk.c.o\"";
-	private static final String BUILD_PATH_ARDUINO_SYSCALLS_MTK = "\"{build.path}/arduino/syscalls_mtk.c.o\"";
+    private static final String BUILD_PATH_SYSCALLS_SAM3 = "\"{build.path}/syscalls_sam3.c.o\"";
+    private static final String BUILD_PATH_ARDUINO_SYSCALLS_SAM3 = "\"{build.path}/arduino/syscalls_sam3.c.o\"";
+    private static final String BUILD_PATH_SYSCALLS_MTK = "\"{build.path}/syscalls_mtk.c.o\"";
+    private static final String BUILD_PATH_ARDUINO_SYSCALLS_MTK = "\"{build.path}/arduino/syscalls_mtk.c.o\"";
 
     /**
      * This method is the internal working class that adds the provided includepath to all configurations and languages.
@@ -131,6 +134,8 @@ public class ArduinoHelpers extends Common {
 			if ((ResourcesPlugin.getWorkspace().getRoot().exists(cusPath))
 				|| (((CIncludePathEntry) OrgIncludeEntries[curEntry]).isBuiltIn())) {
 			    OrgIncludeEntries[copiedEntry++] = OrgIncludeEntries[curEntry];
+			} else {
+			    Common.log(new Status(IStatus.WARNING, ArduinoConst.CORE_PLUGIN_ID, "Removed invalid include path" + cusPath, null));
 			}
 		    }
 		    if (copiedEntry != OrgIncludeEntries.length) // do not save
@@ -141,6 +146,7 @@ public class ArduinoHelpers extends Common {
 			System.arraycopy(OrgIncludeEntries, 0, IncludeEntries, 0, copiedEntry);
 			lang.setSettingEntries(ICSettingEntry.INCLUDE_PATH, IncludeEntries);
 			hasChange = true;
+
 		    }
 		}
 	    }
@@ -535,6 +541,13 @@ public class ArduinoHelpers extends Common {
 	// from 1.5.8 onward 1 more environment variable is needed
 	var = new EnvironmentVariable(ENV_KEY_PLATFORM_PATH, platformFile.removeLastSegments(1).toString());
 	contribEnv.addVariable(var, confDesc);
+	// Teensy uses build.core.path
+	var = new EnvironmentVariable(ENV_KEY_build_core_path, "${" + ENV_KEY_PLATFORM_PATH + "}/cores/${" + ENV_KEY_build_core_folder + "}");
+	contribEnv.addVariable(var, confDesc);
+
+	String buildVariantPath = "${" + ENV_KEY_PLATFORM_PATH + "}/variants/${" + ArduinoConst.ENV_KEY_build_variant + "}";
+	var = new EnvironmentVariable(ENV_KEY_build_variant_path, buildVariantPath);
+	contribEnv.addVariable(var, confDesc);
 
 	// I'm not sure why but till now arduino refused to put this in the platform.txt file
 	// I won't call them idiots for this but it is getting close
@@ -542,29 +555,37 @@ public class ArduinoHelpers extends Common {
 	contribEnv.addVariable(var, confDesc);
 	var = new EnvironmentVariable(ENV_KEY_runtime_ide_version, GetARDUINODefineValue());
 	contribEnv.addVariable(var, confDesc);
+	// for the due from arduino IDE 1.6.1 onwards link the due bin builder to the hex binder
+	var = new EnvironmentVariable("A.RECIPE.OBJCOPY.HEX.PATTERN", "${A.RECIPE.OBJCOPY.BIN.PATTERN}");
+	contribEnv.addVariable(var, confDesc);
 	// End of section permitting denigrating remarks on arduino software development team
-
-	// // Arduino uses the board approach for the upload tool.
-	// // as I'm not I create some special entries to work around it
-	// var = new EnvironmentVariable("A.CMD", makeEnvironmentVar("A.TOOLS.BOSSAC.CMD"));
-	// contribEnv.addVariable(var, confDesc);
-	// var = new EnvironmentVariable("A.PATH", makeEnvironmentVar("A.TOOLS.BOSSAC.PATH"));
-	// contribEnv.addVariable(var, confDesc);
-	// var = new EnvironmentVariable("A.CMD.PATH", makeEnvironmentVar("A.TOOLS.AVRDUDE.CMD.PATH"));
-	// contribEnv.addVariable(var, confDesc);
-	// var = new EnvironmentVariable("A.CONFIG.PATH", makeEnvironmentVar("A.TOOLS.AVRDUDE.CONFIG.PATH"));
-	// contribEnv.addVariable(var, confDesc); // End of section Arduino uses
-	// // the board approach for the
-	// // upload tool.
 
 	// For Teensy I added a flag that allows to compile everything in one
 	// project not using the archiving functionality
 	// I set the default value to: use the archiver
 	var = new EnvironmentVariable(ENV_KEY_use_archiver, "true");
 	contribEnv.addVariable(var, confDesc);
+
+	// Build Time
+	Date d = new Date();
+	GregorianCalendar cal = new GregorianCalendar();
+	long current = d.getTime() / 1000;
+	long timezone = cal.get(Calendar.ZONE_OFFSET) / 1000;
+	long daylight = cal.get(Calendar.DST_OFFSET) / 1000;
+	// p.put("extra.time.utc", Long.toString(current));
+	var = new EnvironmentVariable("A.EXTRA.TIME.UTC", Long.toString(current));
+	contribEnv.addVariable(var, confDesc);
+	// p.put("extra.time.local", Long.toString(current + timezone + daylight));
+	var = new EnvironmentVariable("A.EXTRA.TIME.LOCAL", Long.toString(current + timezone + daylight));
+	contribEnv.addVariable(var, confDesc);
+	// p.put("extra.time.zone", Long.toString(timezone));
+	var = new EnvironmentVariable("A.EXTRA.TIME.ZONE", Long.toString(timezone));
+	contribEnv.addVariable(var, confDesc);
+	// p.put("extra.time.dst", Long.toString(daylight));
+	var = new EnvironmentVariable("A.EXTRA.TIME.DTS", Long.toString(daylight));
+	contribEnv.addVariable(var, confDesc);
 	// End of Teensy specific settings
 
-	
 	if (platformFile.segment(platformFile.segmentCount() - 2).equals("avr")) {
 	    var = new EnvironmentVariable(ENV_KEY_compiler_path, makeEnvironmentVar("A.RUNTIME.IDE.PATH") + "/hardware/tools/avr/bin/");
 	    contribEnv.addVariable(var, confDesc);
@@ -575,8 +596,8 @@ public class ArduinoHelpers extends Common {
 		    + "/hardware/tools/g++_arm_none_eabi/arm-none-eabi/bin");
 	    contribEnv.addVariable(var, confDesc);
 	} else if (platformFile.segment(platformFile.segmentCount() - 2).equals("mtk")) {
-		var = new EnvironmentVariable(ENV_KEY_build_system_path, makeEnvironmentVar("A.RUNTIME.IDE.PATH") + "/hardware/arduino/mtk/system");
-		contribEnv.addVariable(var, confDesc);
+	    var = new EnvironmentVariable(ENV_KEY_build_system_path, makeEnvironmentVar("A.RUNTIME.IDE.PATH") + "/hardware/arduino/mtk/system");
+	    contribEnv.addVariable(var, confDesc);
 	}
 
 	// some glue to make it work
@@ -614,15 +635,6 @@ public class ArduinoHelpers extends Common {
 	var = new EnvironmentVariable(ENV_KEY_archive_file, "arduino.ar");
 	contribEnv.addVariable(var, confDesc);
 
-	IPathVariableManager pathMan = confDesc.getProjectDescription().getProject().getPathVariableManager();
-	URI buildVariantURI = pathMan.getURIValue(ArduinoConst.PATH_VARIABLE_NAME_ARDUINO_PINS);
-	buildVariantURI = pathMan.resolveURI(buildVariantURI);
-	String buildVariantPath = buildVariantURI.getPath() + "/${" + ArduinoConst.ENV_KEY_build_variant + "}";
-	var = new EnvironmentVariable(ENV_KEY_build_variant_path, buildVariantPath);
-	contribEnv.addVariable(var, confDesc);
-	// IPath platformPath = new Path(arduinoProperties.getPlatformFolder());
-	// IPath PinPath = platformPath.append(ArduinoConst.VARIANTS_FOLDER);
-
     }
 
     /**
@@ -636,29 +648,30 @@ public class ArduinoHelpers extends Common {
      */
     private static void setTheEnvironmentVariablesAddthePlatformTxt(IContributedEnvironment contribEnv, ICConfigurationDescription confDesc,
 	    IPath platformFile) throws IOException {
-	DataInputStream dataInputStream = new DataInputStream(new FileInputStream(platformFile.toOSString()));
-	BufferedReader br = new BufferedReader(new InputStreamReader(dataInputStream));
-	String strLine;
-	
-	// Read File Line By Line
-	while ((strLine = br.readLine()) != null) {
-	    String realData[] = strLine.split("#");// Ignore everything after
-						   // first #
-	    if (realData.length > 0) {
-		String var[] = realData[0].split("=", 2); // look for assignment
-		if (var.length == 2) {
-		    String value = var[1];
-		    if (value.contains(BUILD_PATH_SYSCALLS_SAM3)) {
-			value = value.replace(BUILD_PATH_SYSCALLS_SAM3, BUILD_PATH_ARDUINO_SYSCALLS_SAM3);
-		    } else if (value.contains(BUILD_PATH_SYSCALLS_MTK)) {
-			value = value.replace(BUILD_PATH_SYSCALLS_MTK, BUILD_PATH_ARDUINO_SYSCALLS_MTK);
+	try (DataInputStream dataInputStream = new DataInputStream(new FileInputStream(platformFile.toOSString()));
+		BufferedReader br = new BufferedReader(new InputStreamReader(dataInputStream));) {
+	    String strLine;
+
+	    // Read File Line By Line
+	    while ((strLine = br.readLine()) != null) {
+		String realData[] = strLine.split("#");// Ignore everything after
+						       // first #
+		if (realData.length > 0) {
+		    String var[] = realData[0].split("=", 2); // look for assignment
+		    if (var.length == 2) {
+			String value = var[1];
+			if (value.contains(BUILD_PATH_SYSCALLS_SAM3)) {
+			    value = value.replace(BUILD_PATH_SYSCALLS_SAM3, BUILD_PATH_ARDUINO_SYSCALLS_SAM3);
+			} else if (value.contains(BUILD_PATH_SYSCALLS_MTK)) {
+			    value = value.replace(BUILD_PATH_SYSCALLS_MTK, BUILD_PATH_ARDUINO_SYSCALLS_MTK);
+			}
+			IEnvironmentVariable envVar = new EnvironmentVariable(MakeKeyString(var[0]), MakeEnvironmentString(value));
+			contribEnv.addVariable(envVar, confDesc);
 		    }
-		    IEnvironmentVariable envVar = new EnvironmentVariable(MakeKeyString(var[0]), MakeEnvironmentString(value));
-		    contribEnv.addVariable(envVar, confDesc);
 		}
 	    }
+	    dataInputStream.close(); // Close the platform.txt
 	}
-	dataInputStream.close(); // Close the platform.txt
     }
 
     /**
@@ -921,14 +934,14 @@ public class ArduinoHelpers extends Common {
 
 	original = envManager.getVariable(ENV_KEY_ARDUINO_START + "COMPILER.C.FLAGS", confDesc, true);
 	if (original != null) {
-	    replacement = new EnvironmentVariable(original.getName(), original.getValue().replace("-g", "-g2").replace("-Os", ""),
+	    replacement = new EnvironmentVariable(original.getName(), original.getValue().replace("-g ", "-g2 ").replaceFirst("-O.? ", " "),
 		    original.getOperation(), original.getDelimiter());
 	    contribEnv.addVariable(replacement, confDesc);
 	}
 
 	original = envManager.getVariable(ENV_KEY_ARDUINO_START + "COMPILER.CPP.FLAGS", confDesc, true);
 	if (original != null) {
-	    replacement = new EnvironmentVariable(original.getName(), original.getValue().replace("-g", "-g2").replace("-Os", ""),
+	    replacement = new EnvironmentVariable(original.getName(), original.getValue().replace("-g", "-g2").replaceFirst("-O.? ", " "),
 		    original.getOperation(), original.getDelimiter());
 	    contribEnv.addVariable(replacement, confDesc);
 	}
@@ -1091,11 +1104,12 @@ public class ArduinoHelpers extends Common {
 	    // command line parameter
 	    FileInputStream fstream = new FileInputStream(file);
 	    // Get the object of DataInputStream
-	    DataInputStream in = new DataInputStream(fstream);
-	    BufferedReader br = new BufferedReader(new InputStreamReader(in));
-	    String strLine = br.readLine();
-	    in.close();
-	    return strLine;
+	    try (DataInputStream in = new DataInputStream(fstream); BufferedReader br = new BufferedReader(new InputStreamReader(in));) {
+
+		String strLine = br.readLine();
+		in.close();
+		return strLine;
+	    }
 	} catch (Exception e) {// Catch exception if any
 	    System.err.println("Error: " + e.getMessage());
 	    return e.getMessage();
